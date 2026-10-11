@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Sky Chick</title>
+    <!-- The GameDistribution SDK is injected by `npm run build:gd` only (see vite.config.ts). -->
+
+    <style>
+      /* The page reset lives here rather than in a bundled stylesheet. The game container is a
+         full-viewport box the canvas fits into; the dark background matters because the Phaser
+         canvas is `transparent: true`, which would otherwise let the browser's white page bleed
+         through wherever a scene paints nothing. */
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #1a1a1a;
+      }
+      #game-container {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+
+      /* Rotate prompt: the fallback for browsers that refuse OrientationLock's portrait lock
+         (iOS Safari, most non-fullscreen pages). Only phones held sideways see it — a coarse
+         pointer and a short landscape viewport; desktop windows and landscape tablets are left
+         alone, since the FIT-scaled portrait canvas plays fine there. Adding `rotation-ok` to
+         <body> hides it, for a screen that is allowed to go landscape (none is, today). */
+      #rotate-prompt {
+        display: none;
+      }
+      @media (orientation: landscape) and (pointer: coarse) and (max-height: 540px) {
+        body:not(.rotation-ok) #rotate-prompt {
+          position: fixed;
+          inset: 0;
+          z-index: 10;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 16px;
+          background: #1a1a1a;
+          color: #fff;
+          font-family: 'Baloo 2', sans-serif;
+          font-size: 22px;
+          text-align: center;
+          padding: 0 24px;
+        }
+      }
+      #rotate-prompt svg {
+        width: 64px;
+        height: 64px;
+        animation: rotate-hint 2s ease-in-out infinite;
+      }
+      @keyframes rotate-hint {
+        0%,
+        20% {
+          transform: rotate(-90deg);
+        }
+        60%,
+        100% {
+          transform: rotate(0deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game-container"></div>
+    <div id="rotate-prompt" aria-live="polite">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+        <rect x="6" y="2" width="12" height="20" rx="2" />
+        <line x1="10.5" y1="18.5" x2="13.5" y2="18.5" stroke-linecap="round" />
+      </svg>
+      <span id="rotate-prompt-text">Turn your device upright to play</span>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,52 @@
+{
+  "name": "sky-chick",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build:sfx": "tsx scripts/generate-sfx.ts",
+    "build": "tsc && vite build",
+    "build:gd": "tsc && vite build --mode gd",
+    "build:youtube": "tsc && vite build --mode youtube",
+    "package:gd": "npm run build:gd && rm -f sky-chick-gd.zip && cd dist && zip -r -X ../sky-chick-gd.zip . -x '*.DS_Store'",
+    "preview": "vite preview",
+    "lint": "eslint \"src/**/*.{ts,tsx,js}\" --max-warnings=0",
+    "format": "prettier --write \"src/**/*.{ts,tsx,js,css}\"",
+    "prepare": "husky install",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.2",
+    "@types/node": "^25.9.2",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^8.46.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^4.2.1",
+    "husky": "^8.0.3",
+    "lint-staged": "^17.0.0",
+    "prettier": "^2.8.8",
+    "tsx": "^4.19.2",
+    "typescript": "~6.0.2",
+    "vite": "^8.0.12",
+    "vitest": "^4.1.11"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.5.2",
+    "@capacitor/core": "8.5.2",
+    "@capacitor/haptics": "^8.0.2",
+    "@fontsource/baloo-2": "^5.3.0",
+    "phaser": "^4.1.0"
+  },
+  "lint-staged": {
+    "src/**/*.{ts,tsx,js,jsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{md,json,css}": [
+      "prettier --write"
+    ]
+  }
+}
