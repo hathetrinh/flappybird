@@ -1,0 +1,7 @@
+# Netlify serves the plain `web` build (no portal SDK).
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "24"
