@@ -8,13 +8,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The game is never called "Flappy Bird" to players (that name is a trademark). In code it is still `flappy`.
 
-**Treat references to Sokoban, Matchstick, Logic Grid, three.js, PlayScene and levels in `docs/` as history, not as code you can find.** The Flappy ADRs (0001, 0003, 0009, 0010) and the shared ones (0004 Vitest, 0006 game-first layout, 0007 audio) still apply. 0002 (ThreeHost), 0005, 0008 and 0011 are history.
+**Treat references to Sokoban, Matchstick, Logic Grid, three.js, PlayScene and levels in `docs/` as history, not as code you can find.** The Flappy ADRs (0001, 0003, 0009, 0010, 0012) and the shared ones (0004 Vitest, 0006 game-first layout, 0007 audio) still apply. 0002 (ThreeHost), 0005, 0008 and 0011 are history.
 
 ## Commands
 
 Standard scripts (`dev`, `build` = `tsc && vite build`, `preview`, `lint`, `format`) are in `package.json`. A husky pre-commit hook runs lint-staged (eslint --fix + prettier).
 
 **Build targets.** The Vite `--mode` selects the portal, exposed to code as the `__PLATFORM__` constant (`'gd' | 'youtube' | 'web'`, declared in `src/types/app-globals.d.ts`):
+
 - `npm run build` / `npm run dev`: `web`, for a plain web host and Capacitor. No portal SDK is loaded.
 - `npm run build:gd`: injects the GameDistribution SDK snippet into `index.html` (the `gdSdkPlugin` in `vite.config.ts`). `npm run package:gd` builds this target and zips `dist/` as `sky-chick-gd.zip`, the file you upload.
   - **`GD_GAME_ID` in `vite.config.ts` is empty until the game is created on GameDistribution, and the gd build refuses to run without it.** Never borrow another game's id: ad revenue and stats go to whichever entry the id names.
@@ -31,16 +32,16 @@ Standard scripts (`dev`, `build` = `tsc && vite build`, `preview`, `lint`, `form
 
 ## Architecture
 
-`main.ts` boots five scenes: Loading → Menu → FlappyGame, plus Settings (a modal overlay launched over the menu) and About. Before boot it asks for a portrait lock (`lockPortrait()`) and sets the locale from `SettingsService`. On Phaser `READY` it binds `AudioService` and `HapticsService`, then initialises `GameDistributionSDK` only when `__PLATFORM__ === 'gd'`, and `YouTubePlayables` only when it is `'youtube'`.
+`main.ts` boots three scenes: Loading → FlappyGame, plus Settings (a modal overlay launched over the game). There is no menu scene (ADR 0012). Before boot it asks for a portrait lock (`lockPortrait()`) and sets the locale from `SettingsService`. On Phaser `READY` it binds `AudioService` and `HapticsService`, then initialises `GameDistributionSDK` only when `__PLATFORM__ === 'gd'`, and `YouTubePlayables` only when it is `'youtube'`.
 
-- **LoadingScene** queues the SFX (`AssetLoader.queueAudio`) and waits for the bundled Baloo 2 font before starting the menu; a Phaser Text drawn before the font loads keeps the fallback font.
-- **MenuScene**: title, subtitle, a pulsing Play button straight into `FlappyGameScene`, the best score under it, and ⚙️ for Settings. Enter/Space press Play unless Settings is open.
+- **LoadingScene** queues the SFX (`AssetLoader.queueAudio`) and waits for the bundled Baloo 2 font before starting the game; a Phaser Text drawn before the font loads keeps the fallback font.
 - **FlappyGameScene** (`src/games/flappy/`) is the whole game (ADR 0003). It keeps three layers apart:
   - `FlappySim.ts`: pure simulation (physics, pipes, coins, hearts, shield, score, `FLAPPY_TUNING`). No imports; heavily tested.
   - `FlappyRenderer.ts`: 2D Phaser sprites (ADR 0009). `preloadFlappySprites()` is called from the scene's own `preload()`.
   - `FlappyRandom.ts`: a seeded PRNG and `dailySeed(date)`. Every run on the same day meets the same pipes.
   - The scene steps the sim, pushes its state into the renderer, and turns state changes (score, hearts, shield) into sounds and haptics.
-  - Tap, Space or Up flap. On the game-over panel the same control retries after `RETRY_GUARD_MS`, so a crash-time mash can't skip the score.
+  - The sim's `READY` phase is the title screen: title and best score over the waiting bird, gone after the first flap. ⚙️ (top-left) shows only between runs; it launches Settings with `{ returnTo }` and pauses this scene, and on resume the scene restarts if the language or best score changed. Version and credits are a footer in Settings.
+  - Tap, Space or Up flap; a tap on a button never flaps. On the game-over panel the same control retries after `RETRY_GUARD_MS`, so a crash-time mash can't skip the score.
 - **High score**: `ProgressService` under the reserved id `FLAPPY_LEVEL_ID = 2001` (`src/core/GameCatalog.ts`, ADR 0001), in `localStorage` key `matchstick_game_progress`. Both names are legacy from the multi-game app. **Don't change either**, or players who played there lose their best score.
 - **Ads (GameDistribution)**: `FlappyGameScene.requestRetry` shows an interstitial before the next run, through `GameDistributionSDK.showAd(onComplete)`. That wrapper limits interstitials to one per 90 s, always calls back exactly once (immediately when there is no SDK), and pauses through `src/core/ExternalPause.ts`. Every external pause must go through ExternalPause: it is reference-counted by reason, pauses every running scene and all sound, and on resume restores the **player's own** mute setting (`AudioService.isMuted()`), never `false`. SDK events that fire before boot (a preroll) are queued by the injected snippet and replayed in `init()`.
 

@@ -20,15 +20,26 @@ function centreOnRow(button: Phaser.GameObjects.Container, y: number): void {
   button.setY(y);
 }
 
+export interface SettingsData {
+  /** The scene that paused itself to open Settings, resumed on close. */
+  returnTo?: string;
+}
+
 export class SettingsScene extends Phaser.Scene {
+  private returnTo?: string;
+
   constructor() {
     super('SettingsScene');
+  }
+
+  init(data: SettingsData) {
+    this.returnTo = data.returnTo;
   }
 
   create() {
     const { width, height } = this.cameras.main;
     const boxWidth = Math.min(width - ui(40), ui(400));
-    const boxHeight = ui(372);
+    const boxHeight = ui(412);
     const boxX = (width - boxWidth) / 2;
     const boxY = (height - boxHeight) / 2;
     const leftX = boxX + ui(20);
@@ -82,7 +93,6 @@ export class SettingsScene extends Phaser.Scene {
     });
     y += ui(ROW_HEIGHT);
 
-
     this.addLanguageRow(y, leftX, rightX);
     y += ui(ROW_HEIGHT);
 
@@ -96,6 +106,22 @@ export class SettingsScene extends Phaser.Scene {
       onClick: () => this.confirmReset(),
     });
 
+    // What used to be the About screen: with one game and one menu it is a footer, not a scene.
+    this.add
+      .text(
+        width / 2,
+        boxY + boxHeight - ui(28),
+        `${t('menu.title')} ${t('settings.version')} ${__APP_VERSION__} · ${t('settings.credits')}`,
+        {
+          fontFamily: GameConfig.fonts.default,
+          fontSize: uiFont(13),
+          color: '#9a9a9a',
+          align: 'center',
+          wordWrap: { width: boxWidth - ui(40) },
+        },
+      )
+      .setOrigin(0.5);
+
     // A panel open over Settings (the language picker) handles Esc itself and marks the event;
     // closing Settings too would throw away both at once.
     this.input.keyboard?.on('keydown-ESC', (event: KeyboardEvent) => {
@@ -105,6 +131,7 @@ export class SettingsScene extends Phaser.Scene {
 
   private close() {
     this.scene.stop();
+    if (this.returnTo) this.scene.resume(this.returnTo);
   }
 
   private rowLabel(x: number, y: number, text: string) {
@@ -117,7 +144,14 @@ export class SettingsScene extends Phaser.Scene {
       .setOrigin(0, 0.5);
   }
 
-  private addToggleRow(y: number, leftX: number, rightX: number, label: string, initial: boolean, apply: (on: boolean) => boolean) {
+  private addToggleRow(
+    y: number,
+    leftX: number,
+    rightX: number,
+    label: string,
+    initial: boolean,
+    apply: (on: boolean) => boolean,
+  ) {
     this.rowLabel(leftX, y, label);
 
     let on = initial;
@@ -165,7 +199,7 @@ export class SettingsScene extends Phaser.Scene {
           SettingsService.setLanguage(locale.code);
           setLocale(locale.code);
           localizeRotatePrompt();
-          this.scene.restart();
+          this.scene.restart({ returnTo: this.returnTo } satisfies SettingsData);
         },
       })),
       closeLabel: t('common.cancel'),
@@ -182,13 +216,8 @@ export class SettingsScene extends Phaser.Scene {
           variant: 'danger',
           onClick: () => {
             ProgressService.resetAllProgress();
-            this.scene.stop();
-            const menuScene = this.scene.get('MenuScene');
-            if (menuScene && menuScene.scene.isActive()) {
-              menuScene.scene.restart();
-            } else {
-              this.scene.start('MenuScene');
-            }
+            // The scene underneath notices the changed best score when it resumes.
+            this.close();
           },
         },
       ],
@@ -196,4 +225,3 @@ export class SettingsScene extends Phaser.Scene {
     });
   }
 }
-

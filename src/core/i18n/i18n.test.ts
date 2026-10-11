@@ -26,7 +26,7 @@ describe('i18n: dictionaries', () => {
 
 describe('i18n: translate', () => {
   it('returns the string for the requested locale', () => {
-    expect(translate('vi', 'menu.play')).toBe(VI['menu.play']);
+    expect(translate('vi', 'menu.best')).toBe(VI['menu.best']);
   });
 
   it('falls back to English when the locale lacks the key', () => {
@@ -48,12 +48,12 @@ describe('i18n: current locale', () => {
   it('switches locale and routes t() through it', () => {
     setLocale('vi');
     expect(getLocale()).toBe('vi');
-    expect(t('menu.settings')).toBe(VI['menu.settings']);
+    expect(t('settings.title')).toBe(VI['settings.title']);
   });
 
   it('coerces an unrecognised stored value to English rather than throwing', () => {
     setLocale('klingon');
     expect(getLocale()).toBe('en');
-    expect(t('menu.settings')).toBe(EN['menu.settings']);
+    expect(t('settings.title')).toBe(EN['settings.title']);
   });
 });

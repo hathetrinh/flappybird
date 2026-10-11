@@ -11,6 +11,9 @@
 //
 // The renderer used to be a three.js ThreeWorld; it is 2D sprites now, which is why nothing
 // here touches ThreeHost any more. See docs/adr/0009-flappy-2d-sprites.md.
+//
+// There is no menu scene: the run's READY phase doubles as the title screen, and Settings opens
+// over it from the ⚙️ button. See docs/adr/0012-title-screen-in-game-scene.md.
 import * as Phaser from 'phaser';
 import { GameConfig, PLAY_AREA, ui, uiFont } from '@core/GameConfig';
 import { createButton } from '@ui/GameButton';
@@ -19,7 +22,7 @@ import { AudioService } from '@core/AudioService';
 import { HapticsService } from '@core/HapticsService';
 import { FLAPPY_LEVEL_ID } from '@core/GameCatalog';
 import { GameDistributionSDK } from '@core/GameDistribution';
-import { t } from '@core/i18n';
+import { getLocale, t, type LocaleCode } from '@core/i18n';
 import { FlappyRenderer, preloadFlappySprites } from './FlappyRenderer';
 import { dailySeed, mulberry32 } from './FlappyRandom';
 import {
@@ -50,6 +53,12 @@ export class FlappyGameScene extends Phaser.Scene {
   private art!: FlappyRenderer;
   private scoreText!: Phaser.GameObjects.Text;
   private promptText!: Phaser.GameObjects.Text;
+  /** Title and best score, shown only before the first flap since the scene started. */
+  private titleGroup?: Phaser.GameObjects.Container;
+  /** Only between runs (READY and game over): opening Settings mid-flight would be a pause button. */
+  private settingsButton!: Phaser.GameObjects.Container;
+  /** The language the scene's text was built in, so a change made in Settings rebuilds it. */
+  private builtLocale!: LocaleCode;
   /** One icon per starting heart, swapped between full and broken as lives are spent. */
   private hearts: Phaser.GameObjects.Image[] = [];
   private lastHearts = 0;
@@ -68,12 +77,26 @@ export class FlappyGameScene extends Phaser.Scene {
     super('FlappyGameScene');
   }
 
+  /**
+   * Phaser reuses the scene instance across restarts, and create() only builds; without this a
+   * restart after a game over would keep the old panel reference and the `recorded` flag, and
+   * the next crash would never be scored.
+   */
+  init(): void {
+    this.gameOverPanel = undefined;
+    this.titleGroup = undefined;
+    this.recorded = false;
+    this.lastScore = 0;
+    this.retrying = false;
+  }
+
   preload(): void {
     preloadFlappySprites(this);
   }
 
   create(): void {
     this.best = ProgressService.getHighScore(FLAPPY_LEVEL_ID);
+    this.builtLocale = getLocale();
 
     // The scene is the only place that knows both the simulation and the renderer, so it is
     // where the shared geometry is handed over -- see FlappyGeometry.
@@ -93,9 +116,32 @@ export class FlappyGameScene extends Phaser.Scene {
     this.lastShielded = this.state.shielded;
 
     this.buildHud();
-    this.input.on(Phaser.Input.Events.POINTER_DOWN, this.onTap, this);
+    this.buildTitle();
+    this.input.on(Phaser.Input.Events.POINTER_DOWN, this.onPointerDown, this);
     this.input.keyboard?.on('keydown-SPACE', this.onTap, this);
     this.input.keyboard?.on('keydown-UP', this.onTap, this);
+    // Scene events outlive a restart (unlike input listeners), so this one is removed by hand.
+    this.events.on(Phaser.Scenes.Events.RESUME, this.onResume, this);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.events.off(Phaser.Scenes.Events.RESUME, this.onResume, this);
+    });
+  }
+
+  /** Settings runs as an overlay scene; this one is paused under it so no key or tap flaps. */
+  private openSettings(): void {
+    this.scene.launch('SettingsScene', { returnTo: this.scene.key });
+    this.scene.pause();
+  }
+
+  /**
+   * Back from Settings (or from an external pause, which changes neither check). A new language
+   * or a reset best score both show on this screen, and rebuilding is simpler than re-labelling
+   * every text and button. Restarting from a game over skips that break's ad; it is rare.
+   */
+  private onResume(): void {
+    if (getLocale() !== this.builtLocale || ProgressService.getHighScore(FLAPPY_LEVEL_ID) !== this.best) {
+      this.scene.restart();
+    }
   }
 
   /**
@@ -110,6 +156,12 @@ export class FlappyGameScene extends Phaser.Scene {
     return mulberry32(dailySeed(new Date()));
   }
 
+  /** A tap on a button (⚙️, Retry) belongs to the button, not to the flap control. */
+  private onPointerDown(_pointer: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]): void {
+    if (over.length > 0) return;
+    this.onTap();
+  }
+
   private onTap(): void {
     // Once the run is over the same control replays it, so the player never has to reach for
     // the Retry button. The button stays for discoverability.
@@ -121,6 +173,9 @@ export class FlappyGameScene extends Phaser.Scene {
       this.art.playBirdClip('flap');
       AudioService.play('FLAP');
       this.promptText.setVisible(false);
+      this.settingsButton.setVisible(false);
+      this.titleGroup?.destroy();
+      this.titleGroup = undefined;
     }
   }
 
@@ -217,6 +272,7 @@ export class FlappyGameScene extends Phaser.Scene {
     this.art.setShielded(false);
     this.art.playBirdClip('glide');
     this.promptText.setVisible(true);
+    this.settingsButton.setVisible(true);
   }
 
   private buildHud(): void {
@@ -224,10 +280,9 @@ export class FlappyGameScene extends Phaser.Scene {
     const scoreY = PLAY_AREA.top * 0.5;
     const plateWidth = ui(150);
 
-    // The mockup stacks SCORE and LIFE in the top-left corner, but the Menu button already owns
-    // that corner (GameConfig.ui.backBtnPos). Centring both instead keeps the mockup's stacked
-    // reading order without either overlapping the button or shifting a control players in the
-    // other games already know the position of.
+    // The mockup stacks SCORE and LIFE in the top-left corner, but the ⚙️ button owns that
+    // corner (GameConfig.ui.backBtnPos). Centring both instead keeps the mockup's stacked reading
+    // order without either overlapping the button.
     const plate = this.add.image(centreX, scoreY, 'flappy_score_box').setOrigin(0.5).setDepth(HUD_DEPTH);
     const plateHeight = (plate.height / plate.width) * plateWidth;
     plate.setDisplaySize(plateWidth, plateHeight);
@@ -263,14 +318,51 @@ export class FlappyGameScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setDepth(HUD_DEPTH);
 
-    createButton(this, {
+    this.settingsButton = createButton(this, {
       x: GameConfig.ui.backBtnPos.x,
       y: GameConfig.ui.backBtnPos.y,
-      label: t('flappy.menu'),
-      variant: 'primary',
+      label: '⚙️',
+      variant: 'secondary',
+      minWidth: 44,
+      minHeight: 44,
+      fontSize: 22,
       sfx: 'SCENE_SWISH',
-      onClick: () => this.scene.start('MenuScene'),
-    }).setDepth(HUD_DEPTH);
+      onClick: () => this.openSettings(),
+    }).setDepth(HUD_DEPTH + 3);
+  }
+
+  /** The game's name and the best run so far, over the waiting bird, until the first flap. */
+  private buildTitle(): void {
+    const centreX = GameConfig.width / 2;
+    const titleY = GameConfig.height * 0.3;
+    const group = this.add.container(0, 0).setDepth(HUD_DEPTH);
+    const title = this.add
+      .text(centreX, titleY, t('menu.title'), {
+        fontFamily: GameConfig.fonts.default,
+        fontSize: uiFont(44),
+        fontStyle: 'bold',
+        color: '#ffe14d',
+        stroke: '#4a3b2a',
+        strokeThickness: ui(6),
+      })
+      .setOrigin(0.5);
+    group.add(title);
+    if (this.best > 0) {
+      group.add(
+        this.add
+          .text(centreX, titleY + ui(48), t('menu.best').replace('{score}', String(this.best)), {
+            fontFamily: GameConfig.fonts.default,
+            fontSize: uiFont(22),
+            fontStyle: 'bold',
+            color: '#4a3b2a',
+            stroke: '#ffffff',
+            strokeThickness: ui(3),
+          })
+          .setOrigin(0.5),
+      );
+    }
+    this.tweens.add({ targets: title, scale: 1.05, duration: 1000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    this.titleGroup = group;
   }
 
   /**
@@ -355,5 +447,6 @@ export class FlappyGameScene extends Phaser.Scene {
         .setOrigin(0.5),
     );
     this.gameOverPanel = panel;
+    this.settingsButton.setVisible(true);
   }
 }

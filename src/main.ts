@@ -9,9 +9,7 @@ import '@fontsource/baloo-2/latin-ext-700.css';
 import '@fontsource/baloo-2/vietnamese-400.css';
 import '@fontsource/baloo-2/vietnamese-700.css';
 import { LoadingScene } from './scenes/LoadingScene';
-import { MenuScene } from './scenes/MenuScene';
 import { SettingsScene } from './scenes/SettingsScene';
-import { AboutScene } from './scenes/AboutScene';
 import { FlappyGameScene } from '@games/flappy/FlappyGameScene';
 import { GameConfig } from '@core/GameConfig';
 import { AudioService } from '@core/AudioService';
@@ -21,7 +19,6 @@ import { YouTubePlayables } from '@core/YouTubePlayables';
 import { GameDistributionSDK } from '@core/GameDistribution';
 import { setLocale } from '@core/i18n';
 import { localizeRotatePrompt, lockPortrait } from '@core/OrientationLock';
-
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -33,9 +30,8 @@ const config: Phaser.Types.Core.GameConfig = {
   },
   parent: 'game-container',
   transparent: true,
-  scene: [LoadingScene, MenuScene, FlappyGameScene, SettingsScene, AboutScene],
+  scene: [LoadingScene, FlappyGameScene, SettingsScene],
 };
-
 
 // A tall flight path wants a tall screen: ask the platform to stay portrait. Best-effort by
 // design (the API is missing or needs fullscreen in several browsers), so index.html also

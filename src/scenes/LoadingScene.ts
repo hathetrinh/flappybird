@@ -37,11 +37,11 @@ export class LoadingScene extends Phaser.Scene {
   }
 
   create() {
-    // Wait for the web font before the menu, so Phaser doesn't draw text in the fallback (Arial)
+    // Wait for the web font before the title screen, so Phaser doesn't draw text in the fallback (Arial)
     // and keep it: a Text object doesn't redraw itself when the font arrives later.
     this.waitForFonts()
       .catch(() => undefined)
-      .then(() => this.scene.start('MenuScene'));
+      .then(() => this.scene.start('FlappyGameScene'));
   }
 
   private waitForFonts(): Promise<unknown> {

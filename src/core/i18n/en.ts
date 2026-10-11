@@ -1,16 +1,12 @@
 // src/core/i18n/en.ts
 //
-// Every player-facing string: the menu, Settings, About, and the run's HUD and game-over panel.
+// Every player-facing string: the title screen, Settings, and the run's HUD and game-over panel.
 // Add a key here and in vi.ts together (i18n.test.ts checks they match).
 
 export const EN: Record<string, string> = {
   'menu.title': 'Sky Chick',
-  'menu.subtitle': 'Tap to fly',
-  'menu.play': 'Play',
   'menu.best': 'Best: {score}',
-  'menu.settings': 'Settings',
 
-  'common.back': '← Back',
   'common.close': 'Close',
   'common.cancel': 'Cancel',
   'common.on': 'On',
@@ -26,12 +22,9 @@ export const EN: Record<string, string> = {
   'settings.resetTitle': 'Reset best score?',
   'settings.resetBody': 'This erases your best score. It cannot be undone.',
   'settings.resetConfirm': 'Erase it',
+  'settings.version': 'version',
+  'settings.credits': 'Made with Phaser.',
 
-  'about.title': 'About',
-  'about.version': 'Version',
-  'about.credits': 'Made with Phaser.',
-
-  'flappy.menu': '← Menu',
   'flappy.tapToFly': 'Tap to fly',
   'flappy.gameOver': 'Game over',
   'flappy.newBest': 'New best!',

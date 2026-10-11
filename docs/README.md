@@ -54,6 +54,7 @@ those into `specs/` and `plans/` is a `git mv` away.
 - [0004 — Add Vitest, for pure logic modules only](adr/0004-vitest-for-pure-logic.md)
 - [0005 — Flappy Bird 3D appears in LevelSelectScene as a local "extra game" tile](adr/0005-flappy-in-level-select.md)
 - [0006 — Organize `src/` by game, not by technical layer](adr/0006-game-first-source-layout.md)
+- [0012 — The run's READY phase is the title screen; there is no menu scene](adr/0012-title-screen-in-game-scene.md)
 
 ### Specs
 
